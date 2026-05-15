@@ -391,6 +391,20 @@
     <span class="toolbar-label">px</span>
   </div>
 
+  <!-- CANVAS SIZE -->
+  <div class="toolbar-group">
+    <span class="toolbar-label">Canvas</span>
+    <select id="canvasPreset" onchange="render()">
+      <option value="auto">Auto</option>
+      <option value="a4p">A4 Portrait</option>
+      <option value="a4l">A4 Landscape</option>
+      <option value="letter">Letter</option>
+      <option value="hd">1920×1080</option>
+      <option value="hd720">1280×720</option>
+      <option value="sq">Square</option>
+    </select>
+  </div>
+
   <!-- FONT WEIGHT -->
   <div class="toolbar-group">
     <span class="toolbar-label">Weight</span>
@@ -439,13 +453,13 @@
   <!-- SPACING -->
   <div class="toolbar-group">
     <span class="toolbar-label">H Spacing</span>
-    <input type="range" id="spacingH" min="20" max="200" value="70" oninput="render()">
-    <span class="font-size-display size-val" id="spacingHLabel">70</span>
+    <input type="range" id="spacingH" min="10" max="200" value="30" oninput="render()">
+    <span class="font-size-display size-val" id="spacingHLabel">30</span>
   </div>
   <div class="toolbar-group">
     <span class="toolbar-label">V Spacing</span>
-    <input type="range" id="spacingV" min="20" max="200" value="70" oninput="render()">
-    <span class="font-size-display size-val" id="spacingVLabel">70</span>
+    <input type="range" id="spacingV" min="10" max="200" value="50" oninput="render()">
+    <span class="font-size-display size-val" id="spacingVLabel">50</span>
   </div>
 
   <!-- COLORS -->
@@ -477,7 +491,7 @@
   <div class="editor-pane" id="editorPane">
     <div class="pane-header">
       <span>✏ Input Tree</span>
-      <span style="font-size:0.6rem;opacity:0.6">indent = nesting level</span>
+      <span style="font-size:0.6rem;opacity:0.6">indent = nesting · Shift+Enter = line break in same node</span>
     </div>
     <textarea id="editor" spellcheck="false" oninput="render()">নিয়ত ভূমিবিন্যাস
   নকর
@@ -507,9 +521,19 @@
 <script>
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let fontFamily = 'Syne';
-let fontSize = 15;      // text size only
-let nodeScale = 2;      // padding multiplier around text — independent of font size
+let fontSize = 15;
+let nodeScale = 2;
 let isDark = false;
+
+const CANVAS_PRESETS = {
+  auto:   null,
+  a4p:    { w: 794,  h: 1123 },
+  a4l:    { w: 1123, h: 794  },
+  letter: { w: 816,  h: 1056 },
+  hd:     { w: 1920, h: 1080 },
+  hd720:  { w: 1280, h: 720  },
+  sq:     { w: 1000, h: 1000 },
+};
 
 // ─── FONT SIZE (text px only) ─────────────────────────────────────────────────
 function updateFontSizeInput(v) {
@@ -569,16 +593,25 @@ function indentLine(dir) {
 
 // ─── PARSE TREE ───────────────────────────────────────────────────────────────
 function parseTree(text) {
-  const lines = text.split('\n').filter(l => l.trim() !== '');
-  if (!lines.length) return null;
+  const rawLines = text.split('\n');
+  if (!rawLines.length) return null;
 
-  // Detect indentation per line — strips tree chars and measures leading spaces
-  const nodes = lines.map(line => {
-    // Strip common tree drawing chars from the start
-    const stripped = line.replace(/^[\s│├└─┌┐┘┤┬┴┼ ]*/, '');
-    const indent = line.length - line.trimStart().length;
-    return { label: stripped.trim() || line.trim(), indent, children: [] };
-  });
+  // Build nodes; ↵ lines (inserted by Shift+Enter) are continuations of the previous node
+  const nodes = [];
+  for (const line of rawLines) {
+    if (line.trim() === '') continue;
+    const indent  = line.length - line.trimStart().length;
+    const stripped = line.replace(/^[\s│├└─┌┐┘┤┬┴┼ ]*/, '').trim();
+    if (stripped.startsWith('↵ ') || stripped === '↵') {
+      // Continuation line — append to previous node's label
+      if (nodes.length > 0) {
+        nodes[nodes.length - 1].label += '\n' + stripped.slice(stripped === '↵' ? 1 : 2);
+      }
+      continue;
+    }
+    nodes.push({ label: stripped || line.trim(), indent, children: [] });
+  }
+  if (!nodes.length) return null;
 
   // Normalise indents to a consistent step
   const indents = [...new Set(nodes.map(n => n.indent))].sort((a, b) => a - b);
@@ -600,9 +633,32 @@ function parseTree(text) {
 function measureText(ctx, label) {
   const weight = document.getElementById('fontWeight').value;
   ctx.font = `${weight} ${fontSize}px "${fontFamily}"`;
-  const lines = label.split('\n');
-  const w = Math.max(...lines.map(l => ctx.measureText(l).width));
-  return { w, h: lines.length * (fontSize * 1.4) };
+  const MAX_LINE_W = nodeScale * 130;
+
+  const wrapped = [];
+  for (const seg of label.split('\n')) {
+    if (ctx.measureText(seg).width <= MAX_LINE_W) {
+      wrapped.push(seg);
+    } else {
+      // Word-wrap: split on spaces, keeping each word
+      const words = seg.split(' ');
+      let line = '';
+      for (const word of words) {
+        const test = line ? line + ' ' + word : word;
+        if (ctx.measureText(test).width <= MAX_LINE_W) {
+          line = test;
+        } else {
+          if (line) wrapped.push(line);
+          line = word;
+        }
+      }
+      if (line) wrapped.push(line);
+    }
+  }
+  if (!wrapped.length) wrapped.push('');
+
+  const w = Math.max(...wrapped.map(l => ctx.measureText(l).width));
+  return { w, h: wrapped.length * fontSize * 1.4, lines: wrapped };
 }
 
 function layoutTopDown(node, ctx) {
@@ -613,6 +669,7 @@ function layoutTopDown(node, ctx) {
 
   function computeSize(n) {
     const m = measureText(ctx, n.label);
+    n._lines = m.lines;
     n.bw = m.w + PAD_X * 2;
     n.bh = m.h + PAD_Y * 2;
     if (!n.children.length) {
@@ -649,6 +706,7 @@ function layoutLeftRight(node, ctx) {
 
   function computeSize(n) {
     const m = measureText(ctx, n.label);
+    n._lines = m.lines;
     n.bw = m.w + PAD_X * 2;
     n.bh = m.h + PAD_Y * 2;
     if (!n.children.length) {
@@ -724,16 +782,31 @@ function drawTree(canvas, node) {
   }
   bounds(node);
 
-  const W = maxX - minX + PAD * 2;
-  const H = maxY - minY + PAD * 2;
-  canvas.width = Math.max(W, 200);
-  canvas.height = Math.max(H, 100);
+  const treeW = maxX - minX + PAD * 2;
+  const treeH = maxY - minY + PAD * 2;
+
+  const preset = CANVAS_PRESETS[document.getElementById('canvasPreset').value] || null;
+  if (preset) {
+    canvas.width  = preset.w;
+    canvas.height = preset.h;
+  } else {
+    canvas.width  = Math.max(treeW, 200);
+    canvas.height = Math.max(treeH, 100);
+  }
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // BG
   ctx.fillStyle = colors.bg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // For preset canvas: scale-to-fit, then center
+  if (preset) {
+    const fitScale = Math.min(preset.w / treeW, preset.h / treeH);
+    const scaledW  = treeW * fitScale;
+    const scaledH  = treeH * fitScale;
+    ctx.save();
+    ctx.translate((preset.w - scaledW) / 2, (preset.h - scaledH) / 2);
+    ctx.scale(fitScale, fitScale);
+  }
 
   const ox = -minX + PAD;
   const oy = -minY + PAD;
@@ -854,7 +927,7 @@ function drawTree(canvas, node) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    const lines = n.label.split('\n');
+    const lines = n._lines || n.label.split('\n');
     const lineH = fontSize * 1.3;
     const totalH = lines.length * lineH;
     lines.forEach((line, i) => {
@@ -865,6 +938,8 @@ function drawTree(canvas, node) {
   }
 
   drawNode(node);
+
+  if (preset) ctx.restore();
 
   // node count
   let count = 0;
@@ -946,13 +1021,34 @@ function showToast(msg) {
   });
 })();
 
-// ─── TAB SUPPORT IN EDITOR ────────────────────────────────────────────────────
+// ─── KEYBOARD SHORTCUTS IN EDITOR ────────────────────────────────────────────
 document.getElementById('editor').addEventListener('keydown', function(e) {
   if (e.key === 'Tab') {
     e.preventDefault();
     const start = this.selectionStart, end = this.selectionEnd;
     this.value = this.value.slice(0, start) + '  ' + this.value.slice(end);
     this.selectionStart = this.selectionEnd = start + 2;
+    render();
+
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const val = this.value;
+    const pos = this.selectionStart;
+    const lineStart = val.lastIndexOf('\n', pos - 1) + 1;
+    const lineText  = val.slice(lineStart, pos);
+    const indent    = (lineText.match(/^(\s*)/) || ['', ''])[1];
+
+    if (e.shiftKey) {
+      // Shift+Enter — line break within the same node
+      const ins = '\n' + indent + '↵ ';
+      this.value = val.slice(0, pos) + ins + val.slice(pos);
+      this.selectionStart = this.selectionEnd = pos + ins.length;
+    } else {
+      // Enter — new sibling node at the same indent level
+      const ins = '\n' + indent;
+      this.value = val.slice(0, pos) + ins + val.slice(pos);
+      this.selectionStart = this.selectionEnd = pos + ins.length;
+    }
     render();
   }
 });
