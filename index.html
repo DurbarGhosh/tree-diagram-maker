@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tree Diagram Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Caveat:wght@400;600&family=Crimson+Pro:wght@400;600&family=DM+Serif+Display&family=EB+Garamond:wght@400;600&family=Hind:wght@400;600&family=JetBrains+Mono:wght@400;500&family=Libre+Baskerville:wght@400;700&family=Lora:wght@400;600&family=Merriweather:wght@400;700&family=Noto+Nastaliq+Urdu&family=Noto+Sans:wght@400;600&family=Noto+Sans+Arabic&family=Noto+Sans+Bengali:wght@400;600&family=Noto+Sans+Devanagari:wght@400;600&family=Noto+Sans+JP&family=Noto+Sans+Kannada:wght@400;600&family=Noto+Sans+KR&family=Noto+Sans+SC&family=Noto+Sans+Tamil:wght@400;600&family=Noto+Sans+Telugu:wght@400;600&family=Open+Sans:wght@400;600&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;500&family=Source+Serif+4:wght@400;600&family=Space+Mono&family=Spectral:wght@400;600&family=Syne:wght@400;700&family=Tiro+Devanagari&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f0e8;
+    --surface: #faf7f2;
+    --surface2: #ede8de;
+    --border: #c8bfaa;
+    --border2: #a89880;
+    --text: #1a1510;
+    --text2: #5a4e3a;
+    --text3: #8a7a62;
+    --accent: #2d5a27;
+    --accent2: #4a8a42;
+    --accent3: #8db888;
+    --node-bg: #fff;
+    --node-border: #2d5a27;
+    --line-color: #2d5a27;
+    --toolbar-bg: #ede8de;
+    --btn: #2d5a27;
+    --btn-text: #fff;
+    --btn-hover: #1e3d1a;
+    --shadow: rgba(45,90,39,0.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--text);
+    color: #fff;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    border-bottom: 2px solid var(--accent);
+  }
+  header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.25rem;
+    letter-spacing: 0.02em;
+    color: var(--accent3);
+  }
+  header .subtitle {
+    font-size: 0.7rem;
+    color: #888;
+    font-family: 'Space Mono', monospace;
+    margin-top: 1px;
+  }
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  /* TOOLBAR */
+  .toolbar {
+    background: var(--toolbar-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-right: 12px;
+    border-right: 1px solid var(--border2);
+  }
+  .toolbar-group:last-child { border-right: none; }
+  .toolbar-label {
+    font-size: 0.65rem;
+    color: var(--text3);
+    font-family: 'Space Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  select, input[type=range], input[type=number] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.8rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  select:focus, input:focus { border-color: var(--accent); }
+  input[type=range] { padding: 4px 0; width: 80px; accent-color: var(--accent); }
+
+  .btn {
+    background: var(--btn);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 0.75rem;
+    font-family: 'Syne', sans-serif;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--btn-hover); }
+  .btn:active { transform: scale(0.97); }
+  .btn.outline {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+  }
+  .btn.outline:hover { background: var(--accent); color: #fff; }
+  .btn.sym {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    font-family: monospace;
+    font-size: 0.95rem;
+    padding: 3px 7px;
+    min-width: 28px;
+  }
+  .btn.sym:hover { background: var(--accent3); color: var(--text); border-color: var(--accent); }
+
+  .font-size-display {
+    font-size: 0.75rem;
+    color: var(--text2);
+    min-width: 28px;
+    text-align: center;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* MAIN LAYOUT */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    gap: 0;
+  }
+
+  /* EDITOR PANE */
+  .editor-pane {
+    width: 340px;
+    min-width: 220px;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--surface);
+    position: relative;
+  }
+  .pane-header {
+    padding: 8px 14px;
+    font-size: 0.65rem;
+    font-family: 'Space Mono', monospace;
+    color: var(--text3);
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  #editor {
+    flex: 1;
+    padding: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    background: var(--surface);
+    color: var(--text);
+    border: none;
+    resize: none;
+    outline: none;
+    tab-size: 2;
+    overflow-y: auto;
+  }
+  #editor::selection { background: var(--accent3); }
+
+  /* RESIZE HANDLE */
+  .resize-handle {
+    width: 5px;
+    background: var(--border);
+    cursor: col-resize;
+    flex-shrink: 0;
+    transition: background 0.2s;
+    position: relative;
+    z-index: 10;
+  }
+  .resize-handle:hover { background: var(--accent); }
+
+  /* CANVAS PANE */
+  .canvas-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .canvas-pane .pane-header {
+    background: var(--toolbar-bg);
+  }
+  .canvas-wrapper {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 30px;
+  }
+  #treeCanvas {
+    display: block;
+    background: var(--node-bg);
+    border-radius: 8px;
+    box-shadow: 0 4px 24px var(--shadow);
+  }
+
+  /* DARK MODE */
+  body.dark {
+    --bg: #111410;
+    --surface: #181c14;
+    --surface2: #1e2418;
+    --border: #2e3828;
+    --border2: #3d4e35;
+    --text: #e8ead4;
+    --text2: #a8b090;
+    --text3: #6a7a58;
+    --accent: #6ab855;
+    --accent2: #4a8a42;
+    --accent3: #4d7a44;
+    --node-bg: #1e2418;
+    --node-border: #6ab855;
+    --line-color: #6ab855;
+    --toolbar-bg: #1a1f14;
+    --btn: #5aaa48;
+    --btn-hover: #6ab855;
+    --shadow: rgba(0,0,0,0.4);
+  }
+
+  /* FONT SIZE LABEL */
+  .size-val { font-variant-numeric: tabular-nums; }
+
+  /* COLOR PICKERS */
+  .color-pick-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+  }
+  .color-pick-label {
+    font-size: 0.58rem;
+    font-family: 'Space Mono', monospace;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  input[type=color] {
+    -webkit-appearance: none;
+    width: 28px;
+    height: 22px;
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    padding: 1px;
+    background: var(--surface);
+    cursor: pointer;
+  }
+  input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+  input[type=color]::-webkit-color-swatch { border: none; border-radius: 3px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--text);
+    color: var(--bg);
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-family: 'Space Mono', monospace;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none;
+    z-index: 999;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🌿 TreeCraft</h1>
+    <div class="subtitle">hierarchy diagram builder</div>
+  </div>
+  <div class="header-actions">
+    <button class="btn outline" onclick="exportPNG()">Export PNG</button>
+    <button class="btn outline" onclick="exportSVG()">Export SVG</button>
+    <button class="btn" onclick="toggleDark()" id="darkBtn">◑ Dark</button>
+  </div>
+</header>
+
+<div class="toolbar">
+
+  <!-- FONT -->
+  <div class="toolbar-group">
+    <span class="toolbar-label">Font</span>
+    <select id="fontSelect" onchange="render()">
+      <optgroup label="✏ Handdrawn">
+        <option value="Architects Daughter">Architects Daughter</option>
+        <option value="Caveat">Caveat</option>
+      </optgroup>
+      <optgroup label="📐 Modern / UI">
+        <option value="Syne" selected>Syne</option>
+        <option value="Roboto">Roboto</option>
+        <option value="Open Sans">Open Sans</option>
+        <option value="Unbounded">Unbounded</option>
+      </optgroup>
+      <optgroup label="🎓 Academic / Formal">
+        <option value="EB Garamond">EB Garamond</option>
+        <option value="Libre Baskerville">Libre Baskerville</option>
+        <option value="Source Serif 4">Source Serif 4</option>
+        <option value="Merriweather">Merriweather</option>
+        <option value="Spectral">Spectral</option>
+      </optgroup>
+      <optgroup label="📖 Editorial / Literary">
+        <option value="DM Serif Display">DM Serif Display</option>
+        <option value="Playfair Display">Playfair Display</option>
+        <option value="Crimson Pro">Crimson Pro</option>
+        <option value="Lora">Lora</option>
+      </optgroup>
+      <optgroup label="💻 Monospace">
+        <option value="Space Mono">Space Mono</option>
+        <option value="JetBrains Mono">JetBrains Mono</option>
+      </optgroup>
+      <optgroup label="🇮🇳 Indian Languages">
+        <option value="Noto Sans Bengali">Noto Sans Bengali (বাংলা)</option>
+        <option value="Noto Sans Devanagari">Noto Sans Devanagari (हिन्दी)</option>
+        <option value="Tiro Devanagari">Tiro Devanagari (संस्कृत)</option>
+        <option value="Hind">Hind (हिन्दी)</option>
+        <option value="Noto Sans Tamil">Noto Sans Tamil (தமிழ்)</option>
+        <option value="Noto Sans Telugu">Noto Sans Telugu (తెలుగు)</option>
+        <option value="Noto Sans Kannada">Noto Sans Kannada (ಕನ್ನಡ)</option>
+      </optgroup>
+      <optgroup label="🌍 World Languages">
+        <option value="Noto Sans">Noto Sans (Universal)</option>
+        <option value="Noto Sans SC">Noto Sans SC (中文简体)</option>
+        <option value="Noto Sans JP">Noto Sans JP (日本語)</option>
+        <option value="Noto Sans KR">Noto Sans KR (한국어)</option>
+        <option value="Noto Sans Arabic">Noto Sans Arabic (عربي)</option>
+        <option value="Noto Nastaliq Urdu">Noto Nastaliq Urdu (اردو)</option>
+      </optgroup>
+    </select>
+  </div>
+
+  <!-- FONT SIZE -->
+  <div class="toolbar-group">
+    <span class="toolbar-label">Font Size</span>
+    <input type="number" id="fontSizeInput" min="8" max="72" value="15" style="width:52px" oninput="updateFontSizeInput(this.value)">
+    <span class="toolbar-label">px</span>
+  </div>
+
+  <!-- FONT WEIGHT -->
+  <div class="toolbar-group">
+    <span class="toolbar-label">Weight</span>
+    <select id="fontWeight" onchange="render()">
+      <option value="300">Light</option>
+      <option value="400" selected>Regular</option>
+      <option value="600">Semi-Bold</option>
+      <option value="700">Bold</option>
+    </select>
+  </div>
+
+  <!-- NODE SCALE -->
+  <div class="toolbar-group">
+    <span class="toolbar-label">Node Scale</span>
+    <input type="range" id="nodeScaleRange" min="1" max="5" step="0.1" value="2" oninput="updateNodeScale(this.value)">
+    <span class="font-size-display size-val" id="nodeScaleLabel">2</span>
+  </div>
+
+  <!-- LAYOUT -->
+  <div class="toolbar-group">
+    <span class="toolbar-label">Layout</span>
+    <select id="layoutSelect" onchange="render()">
+      <option value="topdown">Top → Down</option>
+      <option value="leftright">Left → Right</option>
+    </select>
+  </div>
+
+  <!-- NODE STYLE -->
+  <div class="toolbar-group">
+    <span class="toolbar-label">Nodes</span>
+    <select id="nodeStyle" onchange="render()">
+      <option value="rect">Rectangle</option>
+      <option value="rounded">Rounded</option>
+      <option value="pill">Pill</option>
+      <option value="none">No box</option>
+    </select>
+  </div>
+
+  <!-- INDENT/OUTDENT -->
+  <div class="toolbar-group">
+    <span class="toolbar-label">Level</span>
+    <button class="btn" title="Make Child (indent)" onclick="indentLine(1)">⇥ Child</button>
+    <button class="btn outline" title="Make Parent (outdent)" onclick="indentLine(-1)">⇤ Parent</button>
+  </div>
+
+  <!-- SPACING -->
+  <div class="toolbar-group">
+    <span class="toolbar-label">H Spacing</span>
+    <input type="range" id="spacingH" min="20" max="200" value="70" oninput="render()">
+    <span class="font-size-display size-val" id="spacingHLabel">70</span>
+  </div>
+  <div class="toolbar-group">
+    <span class="toolbar-label">V Spacing</span>
+    <input type="range" id="spacingV" min="20" max="200" value="70" oninput="render()">
+    <span class="font-size-display size-val" id="spacingVLabel">70</span>
+  </div>
+
+  <!-- COLORS -->
+  <div class="toolbar-group">
+    <span class="toolbar-label">Colors</span>
+    <label class="color-pick-wrap" title="Canvas background">
+      <span class="color-pick-label">BG</span>
+      <input type="color" id="colorBg" value="#f5f0e8" oninput="render()">
+    </label>
+    <label class="color-pick-wrap" title="Node fill">
+      <span class="color-pick-label">Node</span>
+      <input type="color" id="colorNode" value="#ffffff" oninput="render()">
+    </label>
+    <label class="color-pick-wrap" title="Border & lines">
+      <span class="color-pick-label">Line</span>
+      <input type="color" id="colorLine" value="#2d5a27" oninput="render()">
+    </label>
+    <label class="color-pick-wrap" title="Text colour">
+      <span class="color-pick-label">Text</span>
+      <input type="color" id="colorText" value="#1a1510" oninput="render()">
+    </label>
+    <button class="btn outline" style="font-size:0.7rem;padding:4px 8px" onclick="resetColors()">↺ Reset</button>
+  </div>
+
+</div>
+
+<div class="main">
+  <!-- EDITOR -->
+  <div class="editor-pane" id="editorPane">
+    <div class="pane-header">
+      <span>✏ Input Tree</span>
+      <span style="font-size:0.6rem;opacity:0.6">indent = nesting level</span>
+    </div>
+    <textarea id="editor" spellcheck="false" oninput="render()">নিয়ত ভূমিবিন্যাস
+  নকর
+  নকলপার্শ্বীয়
+    বৃদ্ধিসংকোচন
+    হ্রাসবৃদ্ধি
+  দ্বি-পার্শ্বীয়
+  বহুপার্শ্বীয়</textarea>
+  </div>
+
+  <div class="resize-handle" id="resizeHandle"></div>
+
+  <!-- CANVAS -->
+  <div class="canvas-pane">
+    <div class="pane-header">
+      <span>🌿 Tree Diagram</span>
+      <span id="nodeCount" style="font-size:0.6rem;opacity:0.6"></span>
+    </div>
+    <div class="canvas-wrapper" id="canvasWrapper">
+      <canvas id="treeCanvas"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let fontFamily = 'Syne';
+let fontSize = 15;      // text size only
+let nodeScale = 2;      // padding multiplier around text — independent of font size
+let isDark = false;
+
+// ─── FONT SIZE (text px only) ─────────────────────────────────────────────────
+function updateFontSizeInput(v) {
+  const val = Math.max(8, Math.min(72, parseInt(v) || 15));
+  fontSize = val;
+  render();
+}
+
+// ─── NODE SCALE (padding around text) ────────────────────────────────────────
+function updateNodeScale(v) {
+  nodeScale = parseFloat(v);
+  document.getElementById('nodeScaleLabel').textContent = parseFloat(v).toFixed(1);
+  render();
+}
+
+// ─── DARK MODE ────────────────────────────────────────────────────────────────
+function toggleDark() {
+  isDark = !isDark;
+  document.body.classList.toggle('dark', isDark);
+  document.getElementById('darkBtn').textContent = isDark ? '☀ Light' : '◑ Dark';
+  resetColors();
+}
+
+// ─── SYMBOL INSERT ────────────────────────────────────────────────────────────
+function insertSym(sym) {
+  const ed = document.getElementById('editor');
+  const start = ed.selectionStart;
+  const end = ed.selectionEnd;
+  ed.value = ed.value.slice(0, start) + sym + ed.value.slice(end);
+  ed.selectionStart = ed.selectionEnd = start + sym.length;
+  ed.focus();
+  render();
+}
+
+// ─── INDENT / OUTDENT ─────────────────────────────────────────────────────────
+function indentLine(dir) {
+  const ed = document.getElementById('editor');
+  const start = ed.selectionStart;
+  const val = ed.value;
+  const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+  const lineEnd = val.indexOf('\n', start);
+  const line = val.slice(lineStart, lineEnd === -1 ? val.length : lineEnd);
+  let newLine;
+  if (dir === 1) {
+    newLine = '  ' + line;
+  } else {
+    newLine = line.startsWith('  ') ? line.slice(2) : line.startsWith(' ') ? line.slice(1) : line;
+  }
+  const before = val.slice(0, lineStart);
+  const after = val.slice(lineEnd === -1 ? val.length : lineEnd);
+  ed.value = before + newLine + after;
+  const newPos = Math.max(lineStart, start + (newLine.length - line.length));
+  ed.selectionStart = ed.selectionEnd = newPos;
+  ed.focus();
+  render();
+}
+
+// ─── PARSE TREE ───────────────────────────────────────────────────────────────
+function parseTree(text) {
+  const lines = text.split('\n').filter(l => l.trim() !== '');
+  if (!lines.length) return null;
+
+  // Detect indentation per line — strips tree chars and measures leading spaces
+  const nodes = lines.map(line => {
+    // Strip common tree drawing chars from the start
+    const stripped = line.replace(/^[\s│├└─┌┐┘┤┬┴┼ ]*/, '');
+    const indent = line.length - line.trimStart().length;
+    return { label: stripped.trim() || line.trim(), indent, children: [] };
+  });
+
+  // Normalise indents to a consistent step
+  const indents = [...new Set(nodes.map(n => n.indent))].sort((a, b) => a - b);
+  const idxOf = v => indents.indexOf(v);
+  nodes.forEach(n => n.level = idxOf(n.indent));
+
+  // Build tree
+  const root = { label: '__root__', level: -1, children: [] };
+  const stack = [root];
+  for (const node of nodes) {
+    while (stack.length > 1 && stack[stack.length - 1].level >= node.level) stack.pop();
+    stack[stack.length - 1].children.push(node);
+    stack.push(node);
+  }
+  return root.children.length === 1 ? root.children[0] : { label: '', level: -1, children: root.children };
+}
+
+// ─── LAYOUT ───────────────────────────────────────────────────────────────────
+function measureText(ctx, label) {
+  const weight = document.getElementById('fontWeight').value;
+  ctx.font = `${weight} ${fontSize}px "${fontFamily}"`;
+  const lines = label.split('\n');
+  const w = Math.max(...lines.map(l => ctx.measureText(l).width));
+  return { w, h: lines.length * (fontSize * 1.4) };
+}
+
+function layoutTopDown(node, ctx) {
+  const PAD_X = nodeScale * 8;
+  const PAD_Y = nodeScale * 5;
+  const NODE_GAP_X = parseInt(document.getElementById('spacingH').value);
+  const NODE_GAP_Y = parseInt(document.getElementById('spacingV').value);
+
+  function computeSize(n) {
+    const m = measureText(ctx, n.label);
+    n.bw = m.w + PAD_X * 2;
+    n.bh = m.h + PAD_Y * 2;
+    if (!n.children.length) {
+      n.treeW = n.bw;
+    } else {
+      n.children.forEach(computeSize);
+      const childrenW = n.children.reduce((s, c) => s + c.treeW, 0) + NODE_GAP_X * (n.children.length - 1);
+      n.treeW = Math.max(n.bw, childrenW);
+    }
+  }
+
+  function assignPos(n, x, y) {
+    n.x = x + n.treeW / 2;
+    n.y = y;
+    if (n.children.length) {
+      const totalW = n.children.reduce((s, c) => s + c.treeW, 0) + NODE_GAP_X * (n.children.length - 1);
+      let cx = x + (n.treeW - totalW) / 2;
+      for (const c of n.children) {
+        assignPos(c, cx, y + n.bh + NODE_GAP_Y);
+        cx += c.treeW + NODE_GAP_X;
+      }
+    }
+  }
+
+  computeSize(node);
+  assignPos(node, 0, 0);
+}
+
+function layoutLeftRight(node, ctx) {
+  const PAD_X = nodeScale * 8;
+  const PAD_Y = nodeScale * 5;
+  const NODE_GAP_X = parseInt(document.getElementById('spacingH').value);
+  const NODE_GAP_Y = parseInt(document.getElementById('spacingV').value);
+
+  function computeSize(n) {
+    const m = measureText(ctx, n.label);
+    n.bw = m.w + PAD_X * 2;
+    n.bh = m.h + PAD_Y * 2;
+    if (!n.children.length) {
+      n.treeH = n.bh;
+    } else {
+      n.children.forEach(computeSize);
+      const childrenH = n.children.reduce((s, c) => s + c.treeH, 0) + NODE_GAP_Y * (n.children.length - 1);
+      n.treeH = Math.max(n.bh, childrenH);
+    }
+  }
+
+  function assignPos(n, x, y) {
+    n.x = x;
+    n.y = y + n.treeH / 2;
+    if (n.children.length) {
+      const totalH = n.children.reduce((s, c) => s + c.treeH, 0) + NODE_GAP_Y * (n.children.length - 1);
+      let cy = y + (n.treeH - totalH) / 2;
+      for (const c of n.children) {
+        assignPos(c, x + n.bw + NODE_GAP_X, cy);
+        cy += c.treeH + NODE_GAP_Y;
+      }
+    }
+  }
+
+  computeSize(node);
+  assignPos(node, 0, 0);
+}
+
+// ─── DRAW ─────────────────────────────────────────────────────────────────────
+function getColors() {
+  const bg   = document.getElementById('colorBg').value;
+  const node = document.getElementById('colorNode').value;
+  const line = document.getElementById('colorLine').value;
+  const text = document.getElementById('colorText').value;
+  return { nodeBg: node, nodeBorder: line, nodeText: text, line: line, bg: bg };
+}
+
+function resetColors() {
+  const defaults = isDark
+    ? { colorBg: '#111410', colorNode: '#1e2418', colorLine: '#6ab855', colorText: '#e8ead4' }
+    : { colorBg: '#f5f0e8', colorNode: '#ffffff', colorLine: '#2d5a27', colorText: '#1a1510' };
+  for (const [id, val] of Object.entries(defaults)) {
+    document.getElementById(id).value = val;
+  }
+  render();
+}
+
+
+
+function drawTree(canvas, node) {
+  const style = document.getElementById('nodeStyle').value;
+  const layout = document.getElementById('layoutSelect').value;
+  const colors = getColors();
+  const PAD = 32;
+
+  fontFamily = document.getElementById('fontSelect').value;
+  const fontWeight = document.getElementById('fontWeight').value;
+  const ctx = canvas.getContext('2d');
+  ctx.font = `${fontWeight} ${fontSize}px "${fontFamily}"`;
+
+  // Layout pass
+  if (layout === 'topdown') layoutTopDown(node, ctx, 70);
+  else layoutLeftRight(node, ctx, 70);
+
+  // Compute bounding box
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  function bounds(n) {
+    minX = Math.min(minX, n.x - n.bw / 2);
+    minY = Math.min(minY, n.y - n.bh / 2);
+    maxX = Math.max(maxX, n.x + n.bw / 2);
+    maxY = Math.max(maxY, n.y + n.bh / 2);
+    n.children.forEach(bounds);
+  }
+  bounds(node);
+
+  const W = maxX - minX + PAD * 2;
+  const H = maxY - minY + PAD * 2;
+  canvas.width = Math.max(W, 200);
+  canvas.height = Math.max(H, 100);
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // BG
+  ctx.fillStyle = colors.bg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const ox = -minX + PAD;
+  const oy = -minY + PAD;
+
+  ctx.font = `${fontWeight} ${fontSize}px "${fontFamily}"`;
+
+  // Draw edges first
+  function drawEdges(n) {
+    if (!n.children.length) return;
+    const nx = n.x + ox, ny = n.y + oy;
+
+    if (layout === 'topdown') {
+      const startY = ny + n.bh / 2;
+      const endY = n.children[0].y + oy - n.children[0].bh / 2;
+      const midY = (startY + endY) / 2;
+
+      ctx.strokeStyle = colors.line;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([]);
+
+      if (n.children.length === 1) {
+        ctx.beginPath();
+        ctx.moveTo(nx, startY);
+        ctx.lineTo(nx, endY);
+        ctx.stroke();
+      } else {
+        // vertical stem down from parent
+        ctx.beginPath();
+        ctx.moveTo(nx, startY);
+        ctx.lineTo(nx, midY);
+        ctx.stroke();
+        // horizontal bar
+        const leftX = n.children[0].x + ox;
+        const rightX = n.children[n.children.length - 1].x + ox;
+        ctx.beginPath();
+        ctx.moveTo(leftX, midY);
+        ctx.lineTo(rightX, midY);
+        ctx.stroke();
+        // verticals to children
+        for (const c of n.children) {
+          ctx.beginPath();
+          ctx.moveTo(c.x + ox, midY);
+          ctx.lineTo(c.x + ox, c.y + oy - c.bh / 2);
+          ctx.stroke();
+        }
+      }
+    } else {
+      // left-right layout
+      const startX = nx + n.bw / 2;
+      const midX = startX + (n.children[0].x + ox - n.children[0].bw / 2 - startX) / 2;
+
+      ctx.strokeStyle = colors.line;
+      ctx.lineWidth = 1.5;
+
+      if (n.children.length === 1) {
+        ctx.beginPath();
+        ctx.moveTo(startX, ny);
+        ctx.lineTo(n.children[0].x + ox - n.children[0].bw / 2, n.children[0].y + oy);
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(startX, ny);
+        ctx.lineTo(midX, ny);
+        ctx.stroke();
+        const topY = n.children[0].y + oy;
+        const botY = n.children[n.children.length - 1].y + oy;
+        ctx.beginPath();
+        ctx.moveTo(midX, topY);
+        ctx.lineTo(midX, botY);
+        ctx.stroke();
+        for (const c of n.children) {
+          ctx.beginPath();
+          ctx.moveTo(midX, c.y + oy);
+          ctx.lineTo(c.x + ox - c.bw / 2, c.y + oy);
+          ctx.stroke();
+        }
+      }
+    }
+
+    n.children.forEach(drawEdges);
+  }
+
+  drawEdges(node);
+
+  // Draw nodes
+  function drawNode(n) {
+    const nx = n.x + ox, ny = n.y + oy;
+    const bx = nx - n.bw / 2, by = ny - n.bh / 2;
+
+    if (style !== 'none') {
+      // Shadow
+      ctx.shadowColor = 'rgba(0,0,0,0.08)';
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 3;
+
+      ctx.fillStyle = colors.nodeBg;
+      ctx.strokeStyle = colors.nodeBorder;
+      ctx.lineWidth = 1.5;
+
+      if (style === 'rounded') {
+        roundRect(ctx, bx, by, n.bw, n.bh, 8);
+      } else if (style === 'pill') {
+        roundRect(ctx, bx, by, n.bw, n.bh, n.bh / 2);
+      } else {
+        ctx.beginPath();
+        ctx.rect(bx, by, n.bw, n.bh);
+      }
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+    }
+
+    // Text
+    ctx.fillStyle = colors.nodeText;
+    ctx.font = `${fontWeight} ${fontSize}px "${fontFamily}"`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const lines = n.label.split('\n');
+    const lineH = fontSize * 1.3;
+    const totalH = lines.length * lineH;
+    lines.forEach((line, i) => {
+      ctx.fillText(line, nx, ny - totalH / 2 + lineH * i + lineH / 2);
+    });
+
+    n.children.forEach(drawNode);
+  }
+
+  drawNode(node);
+
+  // node count
+  let count = 0;
+  function countNodes(n) { count++; n.children.forEach(countNodes); }
+  countNodes(node);
+  document.getElementById('nodeCount').textContent = `${count} nodes`;
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
+// ─── MAIN RENDER ──────────────────────────────────────────────────────────────
+function render() {
+  document.getElementById('spacingHLabel').textContent = document.getElementById('spacingH').value;
+  document.getElementById('spacingVLabel').textContent = document.getElementById('spacingV').value;
+  const text = document.getElementById('editor').value;
+  const tree = parseTree(text);
+  if (!tree) return;
+  const canvas = document.getElementById('treeCanvas');
+  drawTree(canvas, tree);
+}
+
+// ─── EXPORT ───────────────────────────────────────────────────────────────────
+function exportPNG() {
+  const canvas = document.getElementById('treeCanvas');
+  const link = document.createElement('a');
+  link.download = 'tree-diagram.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+  showToast('PNG exported!');
+}
+
+function exportSVG() {
+  showToast('Hint: Use PNG for best quality export');
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ─── RESIZE HANDLE ────────────────────────────────────────────────────────────
+(function() {
+  const handle = document.getElementById('resizeHandle');
+  const pane = document.getElementById('editorPane');
+  let dragging = false, startX = 0, startW = 0;
+  handle.addEventListener('mousedown', e => {
+    dragging = true;
+    startX = e.clientX;
+    startW = pane.offsetWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const w = Math.max(160, Math.min(600, startW + e.clientX - startX));
+    pane.style.width = w + 'px';
+    render();
+  });
+  document.addEventListener('mouseup', () => {
+    dragging = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
+
+// ─── TAB SUPPORT IN EDITOR ────────────────────────────────────────────────────
+document.getElementById('editor').addEventListener('keydown', function(e) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = this.selectionStart, end = this.selectionEnd;
+    this.value = this.value.slice(0, start) + '  ' + this.value.slice(end);
+    this.selectionStart = this.selectionEnd = start + 2;
+    render();
+  }
+});
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  // Wait for fonts
+  document.fonts.ready.then(render);
+  setTimeout(render, 400);
+});
+</script>
+</body>
+</html>
