@@ -18,7 +18,8 @@ function resetColors() {
 }
 
 // ─── DRAW TREE ────────────────────────────────────────────────────────────────
-function drawTree(canvas, node) {
+// customPreset: optional {w,h} override — used by exportPNG for print-quality dims
+function drawTree(canvas, node, customPreset) {
   const style = document.getElementById('nodeStyle').value;
   const layout = document.getElementById('layoutSelect').value;
   const colors = getColors();
@@ -28,6 +29,15 @@ function drawTree(canvas, node) {
   const fontWeight = document.getElementById('fontWeight').value;
   const ctx = canvas.getContext('2d');
   ctx.font = `${fontWeight} ${fontSize}px "${fontFamily}"`;
+
+  // Header / subheader
+  const title    = (document.getElementById('diagramTitle')?.value    || '').trim();
+  const subtitle = (document.getElementById('diagramSubtitle')?.value || '').trim();
+  const titleFs    = Math.round(fontSize * 1.8);
+  const subtitleFs = Math.round(fontSize * 1.15);
+  const titleH    = title    ? titleFs    * 1.5 : 0;
+  const subtitleH = subtitle ? subtitleFs * 1.5 : 0;
+  const headerH   = (title || subtitle) ? titleH + subtitleH + PAD * 0.5 : 0;
 
   if (layout === 'topdown') layoutTopDown(node, ctx);
   else layoutLeftRight(node, ctx);
@@ -43,9 +53,12 @@ function drawTree(canvas, node) {
   bounds(node);
 
   const treeW = maxX - minX + PAD * 2;
-  const treeH = maxY - minY + PAD * 2;
+  const treeH = maxY - minY + PAD * 2 + headerH;
 
-  const preset = CANVAS_PRESETS[document.getElementById('canvasPreset').value] || null;
+  const preset = customPreset !== undefined
+    ? customPreset
+    : (CANVAS_PRESETS[document.getElementById('canvasPreset').value] || null);
+
   if (preset) {
     canvas.width  = preset.w;
     canvas.height = preset.h;
@@ -67,8 +80,27 @@ function drawTree(canvas, node) {
     ctx.scale(fitScale, fitScale);
   }
 
+  // Draw header/subheader at top (in layout coordinate space)
+  const centerX = treeW / 2;
+  if (title) {
+    ctx.font = `bold ${titleFs}px "${fontFamily}"`;
+    ctx.fillStyle = colors.nodeText;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(title, centerX, titleH / 2);
+  }
+  if (subtitle) {
+    ctx.font = `${fontWeight} ${subtitleFs}px "${fontFamily}"`;
+    ctx.fillStyle = colors.nodeText;
+    ctx.globalAlpha = 0.55;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(subtitle, centerX, titleH + subtitleH / 2);
+    ctx.globalAlpha = 1;
+  }
+
   const ox = -minX + PAD;
-  const oy = -minY + PAD;
+  const oy = -minY + PAD + headerH;
 
   ctx.font = `${fontWeight} ${fontSize}px "${fontFamily}"`;
 

@@ -3,7 +3,9 @@ let fontFamily = 'Syne';
 let fontSize   = 15;
 let nodeScale  = 2;
 let isDark     = false;
+let zoomLevel  = 1;
 
+// Display dimensions (on-screen canvas size)
 const CANVAS_PRESETS = {
   auto:   null,
   a4p:    { w: 794,  h: 1123 },
@@ -12,6 +14,16 @@ const CANVAS_PRESETS = {
   hd:     { w: 1920, h: 1080 },
   hd720:  { w: 1280, h: 720  },
   sq:     { w: 1000, h: 1000 },
+};
+
+// Export dimensions — actual print/screen quality pixels
+const EXPORT_PRESETS = {
+  a4p:    { w: 2480, h: 3508 },   // A4 portrait  @ 300 DPI
+  a4l:    { w: 3508, h: 2480 },   // A4 landscape @ 300 DPI
+  letter: { w: 2550, h: 3300 },   // Letter       @ 300 DPI
+  hd:     { w: 1920, h: 1080 },
+  hd720:  { w: 1280, h: 720  },
+  sq:     { w: 2000, h: 2000 },
 };
 
 // ─── FONT / SCALE CONTROLS ────────────────────────────────────────────────────
@@ -70,20 +82,61 @@ function render() {
   const tree = parseTree(document.getElementById('editor').value);
   if (!tree) return;
   drawTree(document.getElementById('treeCanvas'), tree);
+  applyZoom();
 }
 
 // ─── EXPORT ───────────────────────────────────────────────────────────────────
 function exportPNG() {
-  const canvas = document.getElementById('treeCanvas');
+  const tree = parseTree(document.getElementById('editor').value);
+  if (!tree) return;
+
+  const presetKey = document.getElementById('canvasPreset').value;
+  const exportPreset = EXPORT_PRESETS[presetKey] || null;
+
+  // For preset: render at print-quality dims on offscreen canvas
+  // For auto: export at 2x for sharpness
+  const offscreen = document.createElement('canvas');
+  if (exportPreset) {
+    drawTree(offscreen, tree, exportPreset);
+  } else {
+    // Auto: render once to measure size, then re-render at 2x
+    drawTree(offscreen, tree, null);
+    const w2 = offscreen.width * 2, h2 = offscreen.height * 2;
+    drawTree(offscreen, tree, { w: w2, h: h2 });
+  }
+
   const link = document.createElement('a');
   link.download = 'tree-diagram.png';
-  link.href = canvas.toDataURL('image/png');
+  link.href = offscreen.toDataURL('image/png');
   link.click();
-  showToast('PNG exported!');
+  showToast(`Exported ${offscreen.width}×${offscreen.height}px`);
 }
 
 function exportSVG() {
   showToast('Hint: Use PNG for best quality export');
+}
+
+// ─── ZOOM ─────────────────────────────────────────────────────────────────────
+function zoom(delta) {
+  zoomLevel = Math.max(0.1, Math.min(5, Math.round((zoomLevel + delta) * 100) / 100));
+  applyZoom();
+}
+
+function fitToScreen() {
+  const wrapper = document.getElementById('canvasWrapper');
+  const canvas  = document.getElementById('treeCanvas');
+  const pad = 60;
+  const sx = (wrapper.clientWidth  - pad) / canvas.width;
+  const sy = (wrapper.clientHeight - pad) / canvas.height;
+  zoomLevel = Math.min(sx, sy, 1);
+  applyZoom();
+}
+
+function applyZoom() {
+  const canvas = document.getElementById('treeCanvas');
+  canvas.style.width  = Math.round(canvas.width  * zoomLevel) + 'px';
+  canvas.style.height = Math.round(canvas.height * zoomLevel) + 'px';
+  document.getElementById('zoomLabel').textContent = Math.round(zoomLevel * 100) + '%';
 }
 
 // ─── TOAST ────────────────────────────────────────────────────────────────────
